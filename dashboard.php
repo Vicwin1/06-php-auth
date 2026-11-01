@@ -43,6 +43,7 @@ $errors = is_array($errors) ? $errors : [];
     <link rel="stylesheet" href="assets/auth.css">
 </head>
 <body>
+    <?php require __DIR__ . '/src/nav.php'; ?>
     <main class="auth-page">
         <section class="auth-card" aria-labelledby="dashboard-title">
             <?php if ($errors !== []): ?>

@@ -14,10 +14,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $email = strtolower(trim((string) ($_POST['email'] ?? '')));
     $password = is_string($_POST['password'] ?? null) ? $_POST['password'] : '';
     old('email', $email);
+    $connection = db();
+    $ipAddress = is_string($_SERVER['REMOTE_ADDR'] ?? null)
+        ? $_SERVER['REMOTE_ADDR']
+        : 'unknown';
+    if (strlen($ipAddress) > 45) {
+        $ipAddress = 'unknown';
+    }
+    $attemptEmail = strlen($email) <= 160
+        ? $email
+        : 'invalid:' . hash('sha256', $email);
+
+    $retryMinutes = login_throttle_minutes($connection, $attemptEmail, $ipAddress);
+    if ($retryMinutes > 0) {
+        flash('errors', ["Too many attempts, try again in {$retryMinutes} minutes"]);
+        redirect('login.php');
+    }
 
     $user = false;
     if (filter_var($email, FILTER_VALIDATE_EMAIL)) {
-        $statement = db()->prepare(
+        $statement = $connection->prepare(
             'SELECT id, name, email, password_hash, role FROM users WHERE email = :email LIMIT 1'
         );
         $statement->execute(['email' => $email]);
@@ -30,20 +46,35 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $passwordIsValid = password_verify($password, $storedHash);
 
     if (!is_array($user) || !$passwordIsValid) {
+        $statement = $connection->prepare(
+            'INSERT INTO login_attempts (email, ip) VALUES (:email, :ip_address)'
+        );
+        $statement->execute([
+            'email' => $attemptEmail,
+            'ip_address' => $ipAddress,
+        ]);
         flash('errors', ['Invalid email or password']);
         redirect('login.php');
     }
 
     if (password_needs_rehash($user['password_hash'], PASSWORD_DEFAULT)) {
         $newHash = password_hash($password, PASSWORD_DEFAULT);
-        $statement = db()->prepare('UPDATE users SET password_hash = :password_hash WHERE id = :id');
+        $statement = $connection->prepare('UPDATE users SET password_hash = :password_hash WHERE id = :id');
         $statement->execute([
             'password_hash' => $newHash,
             'id' => $user['id'],
         ]);
     }
 
-    $statement = db()->prepare('UPDATE users SET last_login_at = CURRENT_TIMESTAMP WHERE id = :id');
+    $statement = $connection->prepare(
+        'DELETE FROM login_attempts WHERE email = :email OR ip = :ip_address'
+    );
+    $statement->execute([
+        'email' => $attemptEmail,
+        'ip_address' => $ipAddress,
+    ]);
+
+    $statement = $connection->prepare('UPDATE users SET last_login_at = CURRENT_TIMESTAMP WHERE id = :id');
     $statement->execute(['id' => $user['id']]);
 
     $destination = intended_url() ?? 'dashboard.php';
@@ -112,7 +143,7 @@ $success = flash('success');
                         name="email"
                         type="email"
                         autocomplete="email"
-                        maxlength="254"
+                        maxlength="160"
                         value="<?= e(old('email') ?? '') ?>"
                         required
                     >

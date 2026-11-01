@@ -6,6 +6,18 @@ function e(string $value): string
     return htmlspecialchars($value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
 }
 
+function app_url(string $path): string
+{
+    $scriptDirectory = str_replace('\\', '/', dirname((string) ($_SERVER['SCRIPT_NAME'] ?? '/')));
+    if (basename($scriptDirectory) === 'admin') {
+        $scriptDirectory = dirname($scriptDirectory);
+    }
+
+    $basePath = rtrim($scriptDirectory, '/');
+
+    return ($basePath === '' ? '' : $basePath) . '/' . ltrim($path, '/');
+}
+
 function redirect(string $location): never
 {
     header('Location: ' . $location, true, 303);

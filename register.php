@@ -28,7 +28,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $errors[] = 'Enter a name of no more than 100 characters.';
     }
 
-    if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+    if (!filter_var($email, FILTER_VALIDATE_EMAIL) || strlen($email) > 160) {
         $errors[] = 'Enter a valid email address.';
     }
 
@@ -157,7 +157,7 @@ $success = flash('success');
                         name="email"
                         type="email"
                         autocomplete="email"
-                        maxlength="254"
+                        maxlength="160"
                         value="<?= e(old('email') ?? '') ?>"
                         required
                     >
