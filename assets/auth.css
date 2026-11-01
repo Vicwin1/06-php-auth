@@ -24,6 +24,10 @@ body {
     padding: 32px 16px;
 }
 
+.site-nav + .auth-page {
+    min-height: calc(100vh - 64px);
+}
+
 .site-nav {
     display: flex;
     min-height: 64px;
